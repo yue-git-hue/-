@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>双色球分析助手</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PingFang SC','Microsoft YaHei',sans-serif;background:#f5f7fa;color:#2c3e50;font-size:14px}
+.container{max-width:1100px;margin:0 auto;padding:16px}
+.header{background:#fff;border-radius:12px;padding:20px 24px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.logo{font-size:20px;font-weight:700;color:#e74c3c}
+.logo span{color:#2c3e50;font-size:14px;font-weight:400;margin-left:8px}
+.ball-row{display:flex;gap:6px;justify-content:flex-end;align-items:center}
+.ball{width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff}
+.ball.red{background:linear-gradient(135deg,#e74c3c,#c0392b)}
+.ball.blue{background:linear-gradient(135deg,#3498db,#2980b9)}
+.ball.sm{width:28px;height:28px;font-size:12px}
+.plus{color:#999;font-size:16px}
+.tabs{display:flex;background:#fff;border-radius:10px;margin-bottom:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.tab{flex:1;padding:12px;text-align:center;cursor:pointer;color:#999;font-size:13px;border-bottom:2px solid transparent;transition:all .2s}
+.tab.active{color:#e74c3c;border-bottom-color:#e74c3c;font-weight:600}
+.tab:hover:not(.active){color:#2c3e50;background:#fafafa}
+.panel{display:none}.panel.active{display:block}
+.card{background:#fff;border-radius:12px;padding:20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.card-title{font-size:15px;font-weight:600;margin-bottom:16px;color:#2c3e50;display:flex;align-items:center;gap:8px}
+.card-title::before{content:'';width:4px;height:16px;background:#e74c3c;border-radius:2px;display:inline-block}
+.freq-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.chart-wrap{height:200px}
+.hot-cold{display:flex;gap:16px;margin-bottom:16px}
+.hc-box{flex:1;background:#fafafa;border-radius:8px;padding:12px}
+.hc-label{font-size:11px;color:#999;margin-bottom:8px}
+.ball-wrap{display:flex;flex-wrap:wrap;gap:4px}
+.pick-card{border:1px solid #f0f0f0;border-radius:10px;padding:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;transition:all .2s}
+.pick-card:hover{border-color:#e74c3c;background:#fff8f8}
+.pick-nums{display:flex;align-items:center;gap:5px}
+.pick-note{font-size:11px;color:#999;margin-top:6px}
+.btn{padding:8px 18px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s}
+.btn-primary{background:#e74c3c;color:#fff}.btn-primary:hover{background:#c0392b}
+.btn-outline{background:#fff;color:#e74c3c;border:1px solid #e74c3c}.btn-outline:hover{background:#fff8f8}
+.btn-sm{padding:5px 12px;font-size:12px}
+.user-bar{display:flex;align-items:center;gap:10px;margin-bottom:16px;background:#fff;border-radius:10px;padding:12px 16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.user-bar input{flex:1;border:1px solid #e0e0e0;border-radius:6px;padding:7px 12px;font-size:13px;outline:none}
+.user-bar input:focus{border-color:#e74c3c}
+.user-tag{background:#fff3f3;color:#e74c3c;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:500}
+.my-pick-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f5f5f5}
+.my-pick-row:last-child{border:none}
+.prize-badge{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.prize-1,.prize-2{background:#ffd700;color:#000}
+.prize-3{background:#ff6b6b;color:#fff}
+.prize-4,.prize-5{background:#ffa500;color:#fff}
+.prize-6{background:#95a5a6;color:#fff}
+.prize-0{color:#bbb;font-size:11px}
+.chat-wrap{display:flex;flex-direction:column;height:480px}
+.chat-msgs{flex:1;overflow-y:auto;padding:8px 0;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:80%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.6}
+.msg.user{background:#e74c3c;color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.msg.ai{background:#f5f7fa;color:#2c3e50;align-self:flex-start;border-bottom-left-radius:4px}
+.chat-input-row{display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0}
+.chat-input-row input{flex:1;border:1px solid #e0e0e0;border-radius:8px;padding:9px 14px;font-size:13px;outline:none}
+.chat-input-row input:focus{border-color:#e74c3c}
+.quick-btns{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.quick-btn{background:#fff3f3;color:#e74c3c;border:1px solid #fdd;border-radius:16px;padding:4px 12px;font-size:12px;cursor:pointer}
+.quick-btn:hover{background:#e74c3c;color:#fff}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat-item{background:#fafafa;border-radius:8px;padding:12px;text-align:center}
+.stat-num{font-size:22px;font-weight:700;color:#e74c3c}
+.stat-label{font-size:11px;color:#999;margin-top:3px}
+.gen-area{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.gen-tip{font-size:12px;color:#999}
+.loading{text-align:center;padding:30px;color:#bbb;font-size:13px}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid #f0f0f0;border-top-color:#e74c3c;border-radius:50%;animation:spin .8s linear infinite;margin-right:6px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+  <div>
+    <div class="logo">🎱 双色球分析助手 <span>基于历史数据的智能分析工具</span></div>
+    <div style="font-size:11px;color:#bbb;margin-top:4px">⚠️ 彩票有风险，理性购彩，仅供娱乐参考</div>
+  </div>
+  <div>
+    <div style="font-size:11px;color:#999;margin-bottom:4px;text-align:right" id="latest-issue">加载中...</div>
+    <div class="ball-row" id="latest-balls"></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('analysis')">📊 数据分析</div>
+  <div class="tab" onclick="switchTab('generate')">🎲 智能选号</div>
+  <div class="tab" onclick="switchTab('mypicks')">📋 我的选号</div>
+  <div class="tab" onclick="switchTab('chat')">🤖 AI助手</div>
+</div>
+
+<!-- 分析 -->
+<div class="panel active" id="panel-analysis">
+  <div class="stat-row">
+    <div class="stat-item"><div class="stat-num" id="s-total">--</div><div class="stat-label">统计期数</div></div>
+    <div class="stat-item"><div class="stat-num" id="s-sum">--</div><div class="stat-label">红球均值和</div></div>
+    <div class="stat-item"><div class="stat-num" id="s-odd">--</div><div class="stat-label">最常见奇数个数</div></div>
+    <div class="stat-item"><div class="stat-num" id="s-hotblue">--</div><div class="stat-label">最热蓝球</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">🔥 热号 / 冷号</div>
+    <div class="hot-cold">
+      <div class="hc-box"><div class="hc-label">红球热号（最常出现）</div><div class="ball-wrap" id="hot-reds"></div></div>
+      <div class="hc-box"><div class="hc-label">红球冷号（最少出现）</div><div class="ball-wrap" id="cold-reds"></div></div>
+      <div class="hc-box" style="max-width:140px"><div class="hc-label">蓝球热号</div><div class="ball-wrap" id="hot-blues"></div></div>
+    </div>
+  </div>
+  <div class="freq-grid">
+    <div class="card"><div class="card-title">红球出现频率（近300期）</div><div class="chart-wrap"><canvas id="red-chart"></canvas></div></div>
+    <div class="card"><div class="card-title">蓝球出现频率（近300期）</div><div class="chart-wrap"><canvas id="blue-chart"></canvas></div></div>
+  </div>
+</div>
+
+<!-- 选号 -->
+<div class="panel" id="panel-generate">
+  <div class="card">
+    <div class="card-title">🎲 智能生成选号</div>
+    <div class="gen-area">
+      <div class="gen-tip">基于近300期历史频率加权随机生成，每次5注</div>
+      <button class="btn btn-primary" onclick="generatePicks()">重新生成</button>
+    </div>
+    <div id="picks-list"><div class="loading"><span class="spinner"></span>生成中...</div></div>
+  </div>
+</div>
+
+<!-- 我的选号 -->
+<div class="panel" id="panel-mypicks">
+  <div class="user-bar">
+    <input type="text" id="username-input" placeholder="输入用户名（首次自动注册）" maxlength="20" onkeydown="if(event.key==='Enter')login()">
+    <button class="btn btn-primary" onclick="login()">进入</button>
+    <span id="user-tag" class="user-tag" style="display:none"></span>
+  </div>
+  <div id="mypicks-content" style="display:none">
+    <div class="card">
+      <div class="card-title">我的历史选号</div>
+      <div id="my-picks-list"><div class="loading">加载中...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- AI聊天 -->
+<div class="panel" id="panel-chat">
+  <div class="card">
+    <div class="card-title">🤖 AI分析助手</div>
+    <div class="quick-btns">
+      <span class="quick-btn" onclick="quickAsk('分析最近红球走势和热冷号规律')">红球走势</span>
+      <span class="quick-btn" onclick="quickAsk('哪些号码遗漏期数最长，值得关注？')">遗漏号分析</span>
+      <span class="quick-btn" onclick="quickAsk('最近的奇偶比和大小比规律如何？')">奇偶规律</span>
+      <span class="quick-btn" onclick="quickAsk('和值最近的分布情况？')">和值分析</span>
+      <span class="quick-btn" onclick="quickAsk('蓝球最近有什么规律？')">蓝球规律</span>
+      <span class="quick-btn" onclick="quickAsk('帮我推荐一注号码并说明理由')">推荐号码</span>
+    </div>
+    <div class="chat-wrap">
+      <div class="chat-msgs" id="chat-msgs">
+        <div class="msg ai">你好！我是双色球数据分析助手 🎱 我可以帮你分析历史开奖数据、解读号码规律。请记住：彩票是随机事件，分析仅供参考，理性购彩 😊</div>
+      </div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="问我关于双色球的任何问题..." onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="btn btn-primary" onclick="sendChat()">发送</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+<script>
+let userId=null,username=null,chatHistory=[],statsData=null,generatedPicks=[];
+let redChart=null,blueChart=null;
+
+async function init(){
+  await loadLatest();
+  await loadStats();
+  generatePicks();
+}
+
+async function loadLatest(){
+  const d=await api('/api/latest');
+  if(!d||!d.issue)return;
+  document.getElementById('latest-issue').textContent=`最新：第 ${d.issue} 期`;
+  const row=document.getElementById('latest-balls');
+  row.innerHTML=[d.red1,d.red2,d.red3,d.red4,d.red5,d.red6].map(n=>`<div class="ball red sm">${pad(n)}</div>`).join('')+
+    `<span class="plus">+</span><div class="ball blue sm">${pad(d.blue)}</div>`;
+}
+
+async function loadStats(){
+  const st=await api('/api/stats');
+  if(!st||!st.total)return;
+  statsData=st;
+  document.getElementById('s-total').textContent=st.total;
+  document.getElementById('s-sum').textContent=st.avg_sum;
+  document.getElementById('s-odd').textContent=st.most_odd;
+  document.getElementById('s-hotblue').textContent=pad(st.hot_blues?.[0]||'--');
+  document.getElementById('hot-reds').innerHTML=(st.hot_reds||[]).map(n=>ball(n,'red','sm')).join('');
+  document.getElementById('cold-reds').innerHTML=(st.cold_reds||[]).map(n=>ball(n,'red','sm')).join('');
+  document.getElementById('hot-blues').innerHTML=(st.hot_blues||[]).map(n=>ball(n,'blue','sm')).join('');
+  drawCharts(st);
+}
+
+function drawCharts(st){
+  const rl=Object.keys(st.red_freq).map(Number).sort((a,b)=>a-b);
+  const rd=rl.map(k=>st.red_freq[k]||0);
+  const ctx1=document.getElementById('red-chart').getContext('2d');
+  if(redChart)redChart.destroy();
+  redChart=new Chart(ctx1,{type:'bar',data:{labels:rl,datasets:[{data:rd,
+    backgroundColor:rl.map(n=>st.hot_reds?.includes(n)?'#e74c3c':'#faa'),borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9}}},y:{ticks:{font:{size:9}}}}}});
+
+  const bl=Object.keys(st.blue_freq).map(Number).sort((a,b)=>a-b);
+  const bd=bl.map(k=>st.blue_freq[k]||0);
+  const ctx2=document.getElementById('blue-chart').getContext('2d');
+  if(blueChart)blueChart.destroy();
+  blueChart=new Chart(ctx2,{type:'bar',data:{labels:bl,datasets:[{data:bd,
+    backgroundColor:bl.map(n=>st.hot_blues?.includes(n)?'#2980b9':'#7fb3d3'),borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9}}},y:{ticks:{font:{size:9}}}}}});
+}
+
+async function generatePicks(){
+  document.getElementById('picks-list').innerHTML='<div class="loading"><span class="spinner"></span>生成中...</div>';
+  const res=await api('/api/generate','POST');
+  generatedPicks=res?.picks||[];
+  renderPicks();
+}
+
+function renderPicks(){
+  const el=document.getElementById('picks-list');
+  if(!generatedPicks.length){el.innerHTML='<div class="loading">暂无数据</div>';return;}
+  el.innerHTML=generatedPicks.map((p,i)=>`
+    <div class="pick-card">
+      <div>
+        <div class="pick-nums">${p.reds.map(n=>ball(n,'red')).join('')}<span class="plus">+</span>${ball(p.blue,'blue')}</div>
+        <div class="pick-note">${p.note}</div>
+      </div>
+      <div>${userId?`<button class="btn btn-outline btn-sm" onclick="savePick(${i})">保存</button>`:''}</div>
+    </div>`).join('');
+}
+
+async function savePick(idx){
+  if(!userId){alert('请先在「我的选号」页登录');return;}
+  const p=generatedPicks[idx];
+  await api('/api/picks/save','POST',{user_id:userId,reds:p.reds,blue:p.blue,note:p.note});
+  alert('已保存 ✅');
+}
+
+async function login(){
+  const name=document.getElementById('username-input').value.trim();
+  if(!name){alert('请输入用户名');return;}
+  const res=await api('/api/user/login','POST',{username:name});
+  if(res?.user_id){
+    userId=res.user_id;username=res.username;
+    document.getElementById('user-tag').textContent=`👤 ${username}`;
+    document.getElementById('user-tag').style.display='inline-block';
+    document.getElementById('mypicks-content').style.display='block';
+    loadMyPicks();renderPicks();
+  }
+}
+
+async function loadMyPicks(){
+  if(!userId)return;
+  const picks=await api(`/api/picks/${userId}`);
+  const el=document.getElementById('my-picks-list');
+  if(!picks?.length){el.innerHTML='<div class="loading" style="color:#bbb">暂无记录，去选号页生成并保存</div>';return;}
+  el.innerHTML=picks.map(p=>{
+    const reds=[p.red1,p.red2,p.red3,p.red4,p.red5,p.red6];
+    const lvl=p.prize_level||0;
+    const prizeHtml=lvl>0?`<span class="prize-badge prize-${lvl}">${prizeName(lvl)}</span>`:`<span class="prize-0">未中奖</span>`;
+    return `<div class="my-pick-row">
+      <div>
+        <div class="pick-nums" style="margin-bottom:4px">${reds.map(n=>ball(n,'red','sm')).join('')}<span class="plus">+</span>${ball(p.blue,'blue','sm')}</div>
+        <div style="font-size:11px;color:#bbb">${(p.created_at||'').slice(0,16)} ${p.note||''}</div>
+      </div>${prizeHtml}</div>`;
+  }).join('');
+}
+
+function quickAsk(q){document.getElementById('chat-input').value=q;sendChat();}
+
+async function sendChat(){
+  const input=document.getElementById('chat-input');
+  const msg=input.value.trim();if(!msg)return;
+  input.value='';
+  appendMsg(msg,'user');
+  chatHistory.push({role:'user',content:msg});
+  const typing=appendMsg('正在分析...','ai');
+  const res=await api('/api/chat','POST',{messages:chatHistory});
+  typing.remove();
+  const reply=res?.reply||'抱歉出现错误，请重试';
+  appendMsg(reply,'ai');
+  chatHistory.push({role:'assistant',content:reply});
+  document.getElementById('chat-msgs').scrollTop=9999;
+}
+
+function appendMsg(text,cls){
+  const el=document.createElement('div');
+  el.className=`msg ${cls}`;el.textContent=text;
+  const msgs=document.getElementById('chat-msgs');
+  msgs.appendChild(el);msgs.scrollTop=9999;return el;
+}
+
+function switchTab(name){
+  const names=['analysis','generate','mypicks','chat'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',names[i]===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById(`panel-${name}`).classList.add('active');
+  if(name==='mypicks'&&userId)loadMyPicks();
+}
+
+function ball(n,type,size=''){return `<div class="ball ${type} ${size}">${pad(n)}</div>`;}
+function pad(n){return String(n).padStart(2,'0');}
+function prizeName(l){return['','一等奖🎉','二等奖🎊','三等奖🥳','四等奖','五等奖','六等奖'][l]||'';}
+
+async function api(url,method='GET',body=null){
+  try{
+    const opts={method,headers:{'Content-Type':'application/json'}};
+    if(body)opts.body=JSON.stringify(body);
+    return await(await fetch(url,opts)).json();
+  }catch(e){console.error(e);return null;}
+}
+
+init();
+</script>
+</body>
+</html>
